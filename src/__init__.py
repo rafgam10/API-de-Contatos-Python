@@ -14,4 +14,10 @@ def create_app():
     migrate.init_app(app, db)
     ma.init_app(app)
     
+    # Registrado models
+    from src.models.contato_model import Contato
+    
+    # Registrar as rotas
+    
+    
     return app
