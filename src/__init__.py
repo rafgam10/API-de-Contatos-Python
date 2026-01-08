@@ -18,6 +18,8 @@ def create_app():
     from src.models.contato_model import Contato
     
     # Registrar as rotas
+    from src.routes.contatos_routes import contatos_bp
+    app.register_blueprint(contatos_bp)
     
     
     return app
