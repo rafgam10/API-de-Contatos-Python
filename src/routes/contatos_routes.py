@@ -30,46 +30,100 @@ def criar_contato():
     
     except Exception as e:
         db.session.rollback()
-        return jsonify({"erro": e})
+        return jsonify({"erro": str(e)})
 
 @contatos_bp.route("/", methods=["GET"])
 def listar_contato():
     try:
-        
-        array_contatos = Contato.query.all()
-        return jsonify({array_contatos}), 200
-    
-    except Exception as e:
-        return jsonify({"erro": e})
+        contatos = Contato.query.all()
 
-@contatos_bp.route("/", methods=["GET"])
+        resultado = [
+            {
+                "id": c.id,
+                "nome": c.nome,
+                "email": c.email
+            }
+            for c in contatos
+        ]
+
+        return jsonify(resultado), 200
+
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
+
+@contatos_bp.route("/buscar", methods=["GET"])
 def buscar_nome_ou_email():
     try:
-        data = request.get_json()
-    
-        select_contato = None
-    
-        if data["entrada"] in "@":
-            select_contato = db.session.query(Contato).filter(email=data["entrada"]).first()
+        entrada = request.args.get("q", "").strip()
+
+        if not entrada:
+            return jsonify({"erro": "Parâmetro 'q' é obrigatório"}), 400
+
+        # Decide automaticamente se é email ou nome
+        if "@" in entrada:
+            filtro = Contato.email.ilike(entrada)
         else:
-            select_contato = db.session.query(Contato).filter(nome=data["entrada"]).first()
-        
-        if select_contato == None:
-            jsonify({"message": "Contato não foi encontrado"}), 404
-            
-        return jsonify({"message": {
-            "id": select_contato.id,
-            "nome": select_contato.nome,
-            "email": select_contato.email,
-            "telefone": select_contato.telefone
-        }})
+            filtro = Contato.nome.ilike(f"%{entrada}%")
+
+        contatos = Contato.query.filter(filtro).all()
+
+        if not contatos:
+            return jsonify([]), 200
+
+        return jsonify([
+            {
+                "id": c.id,
+                "nome": c.nome,
+                "email": c.email,
+                "telefone": c.telefone
+            }
+            for c in contatos
+        ]), 200
+
     except Exception as e:
-        return jsonify({"erro": e})
+        return jsonify({"erro": "Erro interno do servidor"}), 500
 
 @contatos_bp.route("/", methods=["PUT"])
 def editar_contato():
-    pass
+    try:
+        
+        data = request.get_json()
+        contato_id = data["id"]
+        
+        if db.session.query(Contato).filter(Contato.id == contato_id).first():
+            select_contato = db.session.query(Contato).filter(Contato.id == contato_id).first()
+            select_contato.nome = data["novo_nome"]
+            select_contato.email = data["novo_email"]
+            select_contato.telefone = data["novo_telefone"]
+            
+            db.session.commit()
+            
+            return jsonify({
+                "message": {
+                    "id": select_contato.id,
+                    "novo_nome": select_contato.nome,
+                    "novo_email": select_contato.email,
+                    "novo_telefone": select_contato.telefone  
+                }
+            }), 200
+        else:
+            return jsonify({"message": "contato não foi localizado"}), 404
 
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+    
 @contatos_bp.route("/", methods=["DELETE"])
 def excluir_contato():
-    pass
+    try:
+        
+        data = request.get_json()
+        
+        select_contato = db.session.query(Contato).filter(Contato.id == data["id"]).first()
+        db.session.delete(select_contato)
+        db.session.commit()
+        
+        return jsonify({"message": "Contato excluido com sucesso!"}), 200
+    
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
